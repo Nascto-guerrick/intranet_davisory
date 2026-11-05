@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Davisory - Portal Corporativo</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- INPUT OCULTO DE BACKUP -->
+  <input type="file" id="inputArquivoBackup" accept=".json" style="display:none" onchange="processarArquivoBackup(event)">
+
+  <!-- TELA DE AUTENTICAÇÃO / LOGIN -->
+  <div id="auth-screen">
+    <div class="auth-card">
+      <div class="brand-logo">
+        <div class="brand-badge">D</div>
+        <div>
+          <div class="brand-title">Davisory</div>
+          <div style="font-size: 13px; color: var(--text-muted);">Portal Interno por Departamentos</div>
+        </div>
+      </div>
+
+      <div class="auth-tabs">
+        <button type="button" class="auth-tab-btn active" id="tabBtnLogin" onclick="alternarTelaAuth('login')">Fazer Login</button>
+        <button type="button" class="auth-tab-btn" id="tabBtnCadastro" onclick="alternarTelaAuth('cadastro')">Criar Nova Conta</button>
+      </div>
+
+      <!-- FORMULÁRIO DE LOGIN -->
+      <form id="formLogin" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label">E-mail corporativo</label>
+          <input type="email" id="loginEmail" class="form-input" required placeholder="seu.nome@davisory.com">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Senha</label>
+          <input type="password" id="loginPass" class="form-input" required placeholder="••••••••">
+        </div>
+        <button type="submit" class="btn-primary" style="width: 100%; justify-content: center;">Entrar no Portal</button>
+
+        <div class="quick-logins">
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">Contas de Teste:</p>
+          <div style="display: flex; gap: 8px;">
+            <button type="button" class="quick-btn" onclick="fillLogin('admin@davisory.com', 'admin')">Admin TI (Acesso Total)</button>
+            <button type="button" class="quick-btn" onclick="fillLogin('colaborador@davisory.com', '123')">Operações (Restrito)</button>
+          </div>
+        </div>
+      </form>
+
+      <!-- FORMULÁRIO DE CADASTRO -->
+      <form id="formCadastro" onsubmit="handleCadastro(event)" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Nome Completo</label>
+          <input type="text" id="cadNome" class="form-input" required placeholder="Ex: Roberto Dias">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">E-mail Corporativo</label>
+          <input type="email" id="cadEmail" class="form-input" required placeholder="roberto.dias@davisory.com">
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div class="form-group">
+            <label class="form-label">Departamento</label>
+            <select id="cadDepto" class="form-select" required></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cargo</label>
+            <input type="text" id="cadCargo" class="form-input" required placeholder="Ex: Assistente">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Senha de Acesso</label>
+          <input type="password" id="cadSenha" class="form-input" required placeholder="Mínimo 4 caracteres" minlength="4">
+        </div>
+
+        <button type="submit" class="btn-primary" style="width: 100%; justify-content: center; background:#10b981;">Criar Conta e Entrar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- PORTAL INTERNO -->
+  <div id="app-container">
+    
+    <!-- ZONA DE HOVER PARA ABRIR A BARRA LATERAL -->
+    <div class="sidebar-hover-trigger"></div>
+
+    <!-- BARRA LATERAL (VENDAS E ESTOQUE) -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-badge">D</div>
+        <div>
+          <div class="brand-title" style="color: white; font-size: 18px;">Davisory</div>
+          <div style="font-size: 11px; color: #94a3b8;">Operações</div>
+        </div>
+      </div>
+
+      <div class="sidebar-menu">
+        <div class="sidebar-category">Menu Operacional</div>
+
+        <a class="sidebar-item active" id="navItemVendas" onclick="switchTab('vendas')">
+          <span class="sidebar-icon">💰</span>
+          <span class="sidebar-label">Vendas & Preparo</span>
+          <span class="badge-count badge-green" id="menuVendasBadge">0</span>
+        </a>
+
+        <a class="sidebar-item" id="navItemEstoque" onclick="switchTab('estoque')">
+          <span class="sidebar-icon">📦</span>
+          <span class="sidebar-label">Estoque</span>
+          <span class="badge-count" id="menuEstoqueBadge">0</span>
+        </a>
+
+        <div class="sidebar-category" id="sidebarCatAdmin">Governança TI</div>
+        <a class="sidebar-item" id="navItemDepartamentos" onclick="switchTab('departamentos')">
+          <span class="sidebar-icon">🛡️</span>
+          <span class="sidebar-label">Funções & Permissões</span>
+          <span class="badge-count badge-ti" id="menuDeptosBadge">0</span>
+        </a>
+      </div>
+
+      <div class="sidebar-hint">
+        <span>👈 Afaste o mouse para recolher</span>
+      </div>
+    </aside>
+
+    <!-- ÁREA PRINCIPAL COM CABEÇALHO SUPERIOR -->
+    <div class="main-wrapper">
+      
+      <!-- CABEÇALHO SUPERIOR COM CHAT E SOLICITAÇÕES (SEM MOVIMENTAÇÕES) -->
+      <header class="top-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button type="button" class="nav-top-btn" id="navItemChat" onclick="switchTab('chat')">
+            💬 Chat Interno
+          </button>
+          <button type="button" class="nav-top-btn" id="navItemPedidos" onclick="switchTab('pedidos')">
+            📋 Solicitações <span class="badge-count badge-orange" id="menuPedidosBadge">0</span>
+          </button>
+        </div>
+
+        <div class="user-profile">
+          <div class="avatar" id="headerAvatar">CR</div>
+          <div>
+            <div id="headerName" style="font-weight: 700; font-size: 13.5px; color: var(--primary);">Nome</div>
+            <div id="headerRole" style="font-size: 11.5px; color: var(--text-muted);">Cargo • Depto</div>
+          </div>
+          <button class="logout-btn" onclick="handleLogout()" title="Sair do Portal">Sair</button>
+        </div>
+      </header>
+
+      <main>
+        <!-- TAB CHAT -->
+        <div id="tab-chat" class="tab-content">
+          <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+              <h2 style="font-size: 20px; color: var(--primary); margin: 0;">Central de Comunicação Interna</h2>
+              <p style="font-size: 13px; color: var(--text-muted); margin: 4px 0 0;">Canais de comunicação rápida entre departamentos e abertura de chamados via comando <strong>!</strong></p>
+            </div>
+            <button type="button" class="btn-primary" id="btnOficializarPedido" onclick="abrirModalPedidoChat()" style="background: var(--warning); color: #fff;">
+              📋 Gerar Solicitação Oficial
+            </button>
+          </div>
+
+          <div class="chat-container">
+            <div class="chat-sidebar">
+              <div class="chat-sidebar-header">
+                <span>Canais</span>
+                <span style="font-size: 11px; color: var(--success); font-weight: 700;">● Ativo</span>
+              </div>
+
+              <div class="chat-section-label">Departamentos</div>
+              <div class="chat-channels-list">
+                <div class="chat-room-item active" onclick="selectChannel('#geral', this)"><span>💬</span> #geral</div>
+                <div class="chat-room-item" onclick="selectChannel('#operacoes', this)"><span>📦</span> #operacoes</div>
+                <div class="chat-room-item" onclick="selectChannel('#ti-suporte', this)"><span>💻</span> #ti-suporte</div>
+              </div>
+
+              <div class="chat-section-divider"></div>
+
+              <div class="chat-section-label" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>Colaboradores</span>
+                <span id="badgeTotalOnline" style="font-size:10.5px; color:#10b981; font-weight:700;"></span>
+              </div>
+              
+              <div class="chat-users-list" id="listaUsuariosChat"></div>
+
+              <div class="chat-my-status-box">
+                <div style="font-size: 11px; color: #64748b; font-weight: 700; margin-bottom: 5px;">Meu Status:</div>
+                <select id="selectMeuStatus" class="form-select" style="padding: 6px 10px; font-size: 12px; font-weight: 600;" onchange="alterarMeuStatus(this.value)">
+                  <option value="online">🟢 Online</option>
+                  <option value="descanso">☕ Em Descanso</option>
+                  <option value="offline">⚪ Offline</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="chat-main">
+              <div class="chat-main-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                  <h3 id="currentChannelName" style="font-size: 15px; color: var(--primary); margin: 0;">#geral</h3>
+                  <span id="currentChannelDesc" style="font-size: 12px; color: var(--text-muted);">Comunicação geral. Digite <strong>!sua solicitação</strong> para registrar um chamado ou <strong>!SOL-xxx resposta</strong> para finalizar.</span>
+                </div>
+              </div>
+
+              <div class="chat-messages" id="chatMessages"></div>
+
+              <div class="chat-input-area">
+                <input type="text" id="chatInput" class="chat-input" placeholder="Mensagem, '!novo chamado' para abrir ou '!SOL-101 resposta' para concluir..." onkeypress="handleKeyPress(event)">
+                <button type="button" class="btn-primary" onclick="sendMessage()">Enviar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB SOLICITAÇÕES -->
+        <div id="tab-pedidos" class="tab-content">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h1 style="font-size: 24px; color: var(--primary); margin: 0;">Painel de Solicitações</h1>
+              <p style="color: var(--text-muted); font-size: 14px; margin: 4px 0 0;">Controle de chamados internos integrados ao chat corporativo.</p>
+            </div>
+            <button type="button" class="btn-primary" onclick="abrirModalNovoPedido()">+ Nova Solicitação</button>
+          </div>
+
+          <div class="metric-grid">
+            <div class="metric-card" style="border-left: 4px solid var(--primary);">
+              <span class="metric-label">TOTAL DE SOLICITAÇÕES</span>
+              <span class="metric-number" id="metricTotal">0</span>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid var(--warning);">
+              <span class="metric-label">SOLICITAÇÕES ATIVAS</span>
+              <span class="metric-number" id="metricAtivos" style="color: var(--warning);">0</span>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid var(--accent);">
+              <span class="metric-label">EM ANDAMENTO</span>
+              <span class="metric-number" id="metricAndamento" style="color: var(--accent);">0</span>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid var(--success);">
+              <span class="metric-label">CONCLUÍDAS</span>
+              <span class="metric-number" id="metricConcluidos" style="color: var(--success);">0</span>
+            </div>
+          </div>
+
+          <div class="filter-bar">
+            <div class="filter-chips">
+              <button type="button" class="chip active" onclick="filtrarStatus('ativos', this)">Apenas Ativas</button>
+              <button type="button" class="chip" onclick="filtrarStatus('todos', this)">Todas</button>
+              <button type="button" class="chip" onclick="filtrarStatus('Pendente', this)">Pendentes</button>
+              <button type="button" class="chip" onclick="filtrarStatus('Em Andamento', this)">Em Andamento</button>
+              <button type="button" class="chip" onclick="filtrarStatus('Concluído', this)">Concluídas</button>
+            </div>
+            <input type="text" id="buscaPedido" placeholder="Buscar por título, solicitante ou ID..." class="form-input" style="max-width: 280px; padding: 7px 12px;" oninput="renderizarPedidos()">
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Solicitação</th>
+                  <th>Solicitante / Canal</th>
+                  <th>Prioridade</th>
+                  <th>Data</th>
+                  <th>Status</th>
+                  <th style="text-align: right;">Ações de Atendimento</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaPedidosCorpo"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- TAB 1: VENDAS & PREPARO -->
+        <div id="tab-vendas" class="tab-content active">
+          <div class="card" style="box-shadow: var(--shadow-lg); border-top: 4px solid var(--accent); margin-bottom: 24px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h2 style="font-size: 20px; color: var(--primary); margin: 0;">Novo Pedido de Venda</h2>
+                <p style="font-size: 13px; color: var(--text-muted); margin: 4px 0 0;">O preenchimento do <strong>Modelo</strong> é opcional. Pedidos sem modelo entram na etapa <strong>"Em Preparo"</strong> para seleção posterior.</p>
+              </div>
+              <span class="badge-count" style="background:#e0f2fe; color:#0284c7; padding:6px 12px; font-size:12px;">Emissão Comercial</span>
+            </div>
+
+            <form id="formNovaVenda" onsubmit="finalizarPedidoVenda(event)">
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; background: #f8fafc; padding: 16px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 16px;">
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label">Nome da Empresa / Loja</label>
+                  <input type="text" id="vendaEmpresa" class="form-input" required placeholder="Ex: Ótica Visual Prime Ltda">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label">Nome do Dono da Loja / Contato</label>
+                  <input type="text" id="vendaDono" class="form-input" required placeholder="Ex: Carlos Eduardo de Souza">
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label">Representante Comercial</label>
+                  <input type="text" id="vendaRepresentante" class="form-input" required placeholder="Ex: Matheus Lima">
+                </div>
+              </div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <strong style="font-size: 13.5px; color: var(--primary); text-transform: uppercase;">Itens Solicitados nesta Venda:</strong>
+                <button type="button" class="action-btn" style="color: var(--accent); border-color: #bfdbfe;" onclick="adicionarLinhaItemVenda()">+ Adicionar Outro Item</button>
+              </div>
+
+              <div id="containerItensVenda" style="margin-bottom: 16px;"></div>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; background: #0f172a; color: white; padding: 16px 20px; border-radius: 10px; flex-wrap: wrap; gap: 14px;">
+                <div style="display: flex; gap: 24px; align-items: center;">
+                  <div>
+                    <span style="font-size: 11px; text-transform: uppercase; opacity: 0.7; display: block;">Total de Peças:</span>
+                    <strong id="vendaTotalPecas" style="font-size: 22px; color: #38bdf8;">0 un</strong>
+                  </div>
+                  <div style="border-left: 1px solid rgba(255,255,255,0.2); padding-left: 24px;">
+                    <span style="font-size: 11px; text-transform: uppercase; opacity: 0.7; display: block;">VALOR TOTAL DO PEDIDO:</span>
+                    <strong id="vendaTotalValor" style="font-size: 26px; color: #4ade80;">R$ 0,00</strong>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                  <button type="button" class="btn-secondary" style="background: rgba(255,255,255,0.1); color:white; border:none;" onclick="limparFormularioVenda()">Limpar</button>
+                  <button type="submit" class="btn-primary" style="background: var(--accent); font-size: 15px; padding: 12px 24px;">Registrar Pedido (Entra em Preparo)</button>
+                </div>
+              </div>
+            </form>
+          </div>
+
+          <!-- HISTÓRICO DE VENDAS -->
+          <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+              <div>
+                <h2 style="font-size: 18px; color: var(--primary); margin: 0;">Histórico de Pedidos de Venda</h2>
+                <p style="font-size: 13px; color: var(--text-muted); margin: 2px 0 0;">Pedidos com status <strong>"Em Preparo"</strong> necessitam de conferência e seleção de modelos antes da conclusão.</p>
+              </div>
+              
+              <div style="display: flex; gap: 10px; align-items: center;">
+                <div class="filter-chips">
+                  <button class="chip active" onclick="filtrarStatusVenda('todos', this)">Todos</button>
+                  <button class="chip" onclick="filtrarStatusVenda('Em Preparo', this)">⏳ Em Preparo</button>
+                  <button class="chip" onclick="filtrarStatusVenda('Concluída', this)">✅ Concluídas</button>
+                  <button class="chip" onclick="filtrarStatusVenda('Cancelada', this)">❌ Canceladas</button>
+                </div>
+                <input type="text" id="buscaVenda" placeholder="Buscar por cliente, dono ou ID..." class="form-input" style="max-width: 250px; padding: 7px 12px;" oninput="renderizarTabelaVendas()">
+              </div>
+            </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nº Pedido</th>
+                    <th>Data & Hora</th>
+                    <th>Empresa / Loja</th>
+                    <th>Dono da Loja</th>
+                    <th>Representante</th>
+                    <th>Status do Pedido</th>
+                    <th>Qtd. Peças</th>
+                    <th>Valor Total</th>
+                    <th style="text-align: right;">Ações Comerciais</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaVendasCorpo"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 2: ESTOQUE (COM MOVIMENTAÇÃO COMO UMA AÇÃO/VISÃO INTERNA) -->
+        <div id="tab-estoque" class="tab-content">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h1 style="font-size: 24px; color: var(--primary);">Estoque Físico & Almoxarifado</h1>
+              <p style="color: var(--text-muted); font-size: 14px;">Controle integrado de suprimentos, visão por gaveteiro, tabelas e histórico de movimentações.</p>
+            </div>
+            
+            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+              <button class="btn-secondary" title="Salvar cópia do estoque real no computador" onclick="exportarBackupEstoque()">💾 Baixar Backup</button>
+              <button class="btn-secondary" title="Restaurar dados de um arquivo salvo" onclick="importarBackupEstoque()">📂 Restaurar Backup</button>
+
+              <!-- AÇÕES DE VISÃO DO ESTOQUE -->
+              <div style="background: #e2e8f0; padding: 4px; border-radius: 8px; display: flex; gap: 4px;">
+                <button id="btnVisaoNaval" class="action-btn" style="background: var(--accent); color: white; border: none;" onclick="alternarModoVisaoEstoque('naval')">🎯 Visão Gaveteiro</button>
+                <button id="btnVisaoTabela" class="action-btn" style="background: transparent; border: none;" onclick="alternarModoVisaoEstoque('tabela')">📄 Tabela</button>
+                <button id="btnVisaoMovs" class="action-btn" style="background: transparent; border: none;" onclick="alternarModoVisaoEstoque('movs')">🔄 Movimentações</button>
+              </div>
+
+              <!-- AÇÕES OPERACIONAIS DO ESTOQUE -->
+              <button class="btn-primary" style="background: var(--warning); color: #fff;" onclick="abrirModalMovimentacaoLote()">+ Movimentar em Lote</button>
+              <button class="btn-primary" id="btnNovoItemEstoque" onclick="abrirModalItemEstoque()">+ Cadastrar Produto</button>
+            </div>
+          </div>
+
+          <!-- MÉTRICAS GERAIS DO ESTOQUE (VISÍVEIS QUANDO EM GAVETEIRO OU TABELA) -->
+          <div id="painelMetricasEstoqueGeral" class="metric-grid">
+            <div class="metric-card" style="border-left: 4px solid var(--primary);">
+              <span class="metric-label">TOTAL DE UNIDADES</span>
+              <span class="metric-number" id="metricEstoqueTotal">0</span>
+              <span style="font-size: 12px; color: #64748b;">Soma de todas as categorias</span>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid var(--success);">
+              <span class="metric-label">PRODUTOS REGULARES</span>
+              <span class="metric-number" id="metricEstoqueOk" style="color: var(--success);">0</span>
+              <span style="font-size: 12px; color: #64748b;">Acima do limite mínimo</span>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid var(--warning);">
+              <span class="metric-label">ESTOQUE BAIXO</span>
+              <span class="metric-number" id="metricEstoqueBaixo" style="color: var(--warning);">0</span>
+              <span style="font-size: 12px; color: #64748b;">Alerta de reposição</span>
+            </div>
+            <div class="metric-card" style="border-left: 4px solid var(--danger);">
+              <span class="metric-label">GAVETAS ZERADAS</span>
+              <span class="metric-number" id="metricEstoqueEsgotado" style="color: var(--danger);">0</span>
+              <span style="font-size: 12px; color: #64748b;">Saldo total zerado</span>
+            </div>
+          </div>
+
+          <!-- 1. VISÃO GAVETEIRO (BATALHA NAVAL) -->
+          <div id="containerVisaoNaval" class="navio-grid-wrapper">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 style="font-size: 16px; color: var(--primary);">Armário Inteligente de Suprimentos</h3>
+                <p style="font-size: 13px; color: var(--text-muted);">Mostra a quantidade total consolidada. Clique para ver a separação por categoria.</p>
+              </div>
+
+              <div style="display: flex; gap: 16px; background: #f8fafc; padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border); align-items: center;">
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600;">
+                  <span>Linhas:</span>
+                  <button class="btn-qty" title="Reduzir Linhas" onclick="alterarTamanhoGrade(-1, 0)">−</button>
+                  <span id="labelTotalLinhas" style="color: var(--accent); font-weight: 700;">4</span>
+                  <button class="btn-qty" title="Aumentar Linhas" onclick="alterarTamanhoGrade(1, 0)">+</button>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; border-left: 1px solid var(--border); padding-left: 16px;">
+                  <span>Colunas:</span>
+                  <button class="btn-qty" title="Reduzir Colunas" onclick="alterarTamanhoGrade(0, -1)">−</button>
+                  <span id="labelTotalColunas" style="color: var(--accent); font-weight: 700;">4</span>
+                  <button class="btn-qty" title="Aumentar Colunas" onclick="alterarTamanhoGrade(0, 1)">+</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="navio-board" id="tabuleiroNaval"></div>
+          </div>
+
+          <!-- 2. VISÃO TABELA -->
+          <div id="containerVisaoTabela" style="display: none;">
+            <div class="filter-bar">
+              <div class="filter-chips">
+                <button class="chip active" onclick="filtrarEstoque('todos', this)">Todos os Itens</button>
+                <button class="chip" onclick="filtrarEstoque('alerta', this)">Alertas & Baixo</button>
+                <button class="chip" onclick="filtrarEstoque('esgotado', this)">Esgotados</button>
+              </div>
+              <input type="text" id="buscaEstoque" placeholder="Buscar por produto, gaveta ou categoria..." class="form-input" style="max-width: 280px; padding: 7px 12px;" oninput="renderizarEstoque()">
+            </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Código</th>
+                    <th>
+                      Produto / Gaveta
+                      <button class="th-btn-add" title="Gerenciar Locais" onclick="abrirModalGerenciarAtributo('locais')">+</button>
+                    </th>
+                    <th>
+                      Categorias na Gaveta
+                      <button class="th-btn-add" title="Gerenciar Categorias" onclick="abrirModalGerenciarAtributo('categorias')">+</button>
+                    </th>
+                    <th>Total em Estoque</th>
+                    <th>Estoque Mínimo</th>
+                    <th>Status</th>
+                    <th style="text-align: right;">Detalhar / Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaEstoqueCorpo"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 3. VISÃO MOVIMENTAÇÕES (AÇÃO DENTRO DO ESTOQUE - CONTAINER IRMÃO) -->
+          <div id="containerVisaoMovs" style="display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+              <div>
+                <h3 style="font-size: 18px; color: var(--primary); margin: 0;">Histórico & Auditoria de Movimentações</h3>
+                <p style="color: var(--text-muted); font-size: 13.5px; margin: 4px 0 0;">Registro oficial de entradas, saídas físicas, estornos e emissão de guias de transporte interno.</p>
+              </div>
+              <button type="button" class="btn-primary" onclick="abrirModalMovimentacaoLote()">+ Nova Movimentação em Lote</button>
+            </div>
+
+            <div class="metric-grid">
+              <div class="metric-card" style="border-left: 4px solid var(--primary);">
+                <span class="metric-label">TOTAL DE OPERAÇÕES</span>
+                <span class="metric-number" id="metricTotalMovs">0</span>
+              </div>
+              <div class="metric-card" style="border-left: 4px solid var(--success);">
+                <span class="metric-label">ENTRADAS REGISTRADAS</span>
+                <span class="metric-number" id="metricTotalEntradas" style="color: var(--success);">0</span>
+              </div>
+              <div class="metric-card" style="border-left: 4px solid var(--danger);">
+                <span class="metric-label">SAÍDAS REGISTRADAS</span>
+                <span class="metric-number" id="metricTotalSaidas" style="color: var(--danger);">0</span>
+              </div>
+            </div>
+
+            <div class="filter-bar">
+              <div class="filter-chips">
+                <button type="button" class="chip active" onclick="filtrarMovs('todas', this)">Todas as Movimentações</button>
+                <button type="button" class="chip" onclick="filtrarMovs('Entrada', this)">Apenas Entradas</button>
+                <button type="button" class="chip" onclick="filtrarMovs('Saída', this)">Apenas Saídas</button>
+                <button type="button" class="chip" onclick="filtrarMovs('Mista', this)">Mistas / Em Lote</button>
+              </div>
+              <input type="text" id="buscaMovimentacao" placeholder="Buscar por ID, responsável ou motivo..." class="form-input" style="max-width: 280px; padding: 7px 12px;" oninput="renderizarTabelaMovimentacoes()">
+            </div>
+
+            <div class="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID Operação</th>
+                    <th>Data</th>
+                    <th>Hora</th>
+                    <th>Responsável</th>
+                    <th>Tipo Geral</th>
+                    <th>Modelos & Variações</th>
+                    <th style="text-align: right;">Ações & Documento</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaMovimentacoesCorpo"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+              <!-- TAB GOVERNANÇA / FUNÇÕES & PERMISSÕES -->
+        <div id="tab-departamentos" class="tab-content">
+          <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+            <div>
+              <h1 style="font-size: 24px; color: var(--primary); margin: 0;">Governança de Funções & Permissões</h1>
+              <p style="color: var(--text-muted); font-size: 14px; margin: 4px 0 0;">Configuração de departamentos e matriz de controle de acesso aos módulos (RBAC).</p>
+            </div>
+            <button type="button" class="btn-primary" onclick="abrirModalDepartamento()">+ Novo Departamento</button>
+          </div>
+
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Departamento</th>
+                  <th>Matriz de Permissões Concedidas</th>
+                  <th>Equipe</th>
+                  <th style="text-align: right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaDepartamentosCorpo"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAIS -->
+  <div id="modalGavetaNaval" class="modal-overlay">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span id="modalGavetaCoord" class="badge-count" style="font-size: 14px; padding: 4px 10px; background: var(--primary);">A1</span>
+          <h3 style="color: var(--primary); margin: 0;">Conteúdo da Gaveta</h3>
+        </div>
+        <button onclick="fecharModalGaveta()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+      <div id="modalGavetaConteudo"></div>
+    </div>
+  </div>
+
+  <div id="modalAdicionarVariante" class="modal-overlay">
+    <div class="modal-box" style="max-width: 440px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <h3 style="color: var(--primary);">+ Adicionar Categoria na Gaveta</h3>
+        <button onclick="fecharModalAdicionarVariante()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+
+      <form onsubmit="salvarNovaVariante(event)">
+        <input type="hidden" id="varProdutoId">
+        <div class="form-group">
+          <label class="form-label">Categoria</label>
+          <select id="varCategoria" class="form-select" required></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Quantidade</label>
+          <input type="number" id="varQtd" class="form-input" min="1" value="5" required>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+          <button type="button" class="btn-secondary" onclick="fecharModalAdicionarVariante()">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar Categoria</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modalEstoque" class="modal-overlay">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="color: var(--primary);" id="modalEstoqueTitulo">Cadastrar Produto no Gaveteiro</h3>
+        <button onclick="fecharModalEstoque()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+
+      <form onsubmit="salvarItemEstoque(event)">
+        <input type="hidden" id="prodIdEdit">
+        <div class="form-group">
+          <label class="form-label">Nome do Produto</label>
+          <input type="text" id="prodNome" class="form-input" required placeholder="Ex: Mod. 101">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Categoria Inicial</label>
+            <select id="prodCategoria" class="form-select" required></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Posição da Gaveta (Coord.)</label>
+            <select id="prodLocal" class="form-select" required></select>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Quantidade Inicial</label>
+            <input type="number" id="prodQtd" class="form-input" required min="1" value="10">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Estoque Mínimo Total da Gaveta</label>
+            <input type="number" id="prodQtdMin" class="form-input" required min="1" value="4">
+          </div>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+          <button type="button" class="btn-secondary" onclick="fecharModalEstoque()">Cancelar</button>
+          <button type="submit" class="btn-primary">Alocar na Gaveta</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modalGerenciarAtributo" class="modal-overlay">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="color: var(--primary);" id="modalAttrTitulo">Gerenciar Característica</h3>
+        <button onclick="fecharModalAtributo()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+      <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <input type="text" id="novoAttrValor" class="form-input" placeholder="Nova opção..." style="flex: 1;">
+        <button type="button" class="btn-primary" onclick="adicionarValorAtributo()">+ Adicionar</button>
+      </div>
+      <label class="form-label">Opções Atuais:</label>
+      <div id="listaAtributosContainer" style="max-height: 220px; overflow-y: auto; padding-right: 4px;"></div>
+      <div style="display: flex; justify-content: flex-end; margin-top: 18px;">
+        <button type="button" class="btn-secondary" onclick="fecharModalAtributo()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalPreparoVenda" class="modal-overlay">
+    <div class="modal-box" style="max-width: 720px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <h3 style="color: var(--primary); margin: 0;">Etapa: Em Preparo & Separação</h3>
+            <span class="badge-count badge-orange" id="modalPreparoIdBadge">VEN-1001</span>
+          </div>
+          <p style="font-size: 13px; color: var(--text-muted); margin: 4px 0 0;">
+            Confira as peças com o check (✓). Itens sem modelo precisam ter o modelo do gaveteiro selecionado antes de finalizar.
+          </p>
+        </div>
+        <button onclick="fecharModalPreparo()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+
+      <div style="background: #f8fafc; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
+        <div>Cliente: <strong id="modalPreparoCliente">-</strong></div>
+        <div>Dono / Contato: <strong id="modalPreparoDono">-</strong></div>
+      </div>
+
+      <div id="containerItensPreparo" style="max-height: 280px; overflow-y: auto; padding-right: 4px; margin-bottom: 18px;"></div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 14px;">
+        <button type="button" class="btn-secondary" onclick="fecharModalPreparo()">Salvar e Continuar Depois</button>
+        <button type="button" class="btn-primary" id="btnFinalizarPreparo" style="background: var(--success);" onclick="confirmarConclusaoPreparo()">
+          ✅ Concluir Pedido e Faturar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalDocumentoVenda" class="modal-overlay">
+    <div class="modal-box" style="max-width: 680px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="color: var(--primary); margin: 0;">Espelho do Pedido de Venda</h3>
+        <button onclick="fecharModalVendaDoc()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+      <div id="conteudoDocumentoVenda" class="doc-romaneio"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+        <button type="button" class="btn-secondary" onclick="imprimirDocumentoVenda()">🖨️ Imprimir Pedido</button>
+        <button type="button" class="btn-primary" onclick="fecharModalVendaDoc()">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE SOLICITAÇÃO (INTEGRADO AO CHAT E AO PAINEL) -->
+  <div id="modalPedido" class="modal-overlay">
+    <div class="modal-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge-count badge-orange" style="font-size: 13px;">Oficial</span>
+          <h3 style="color: var(--primary); margin: 0;">Registro de Solicitação Interna</h3>
+        </div>
+        <button type="button" onclick="fecharModalPedido()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+      <form onsubmit="salvarPedido(event)">
+        <div class="form-group">
+          <label class="form-label">Título da Solicitação</label>
+          <input type="text" id="pedTitulo" class="form-input" required placeholder="Ex: Reposição Mod. 101 Inox">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label">Canal / Setor de Destino</label>
+            <select id="pedCanal" class="form-select" required>
+              <option value="#geral">#geral</option>
+              <option value="#operacoes">#operacoes (Estoque)</option>
+              <option value="#ti-suporte">#ti-suporte (Sistemas)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Prioridade</label>
+            <select id="pedPrioridade" class="form-select" required>
+              <option value="Baixa">Baixa</option>
+              <option value="Média" selected>Média</option>
+              <option value="Alta">Alta</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descrição detalhada do Chamado</label>
+          <textarea id="pedDescricao" class="form-textarea" rows="3" required placeholder="Explique os detalhes do pedido..."></textarea>
+        </div>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px;">
+          <button type="button" class="btn-secondary" onclick="fecharModalPedido()">Cancelar</button>
+          <button type="submit" class="btn-primary" style="background: var(--warning); color: #fff;">Registrar e Notificar no Chat</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL CONCLUIR SOLICITAÇÃO COM OBSERVAÇÃO/RESPOSTA -->
+  <div id="modalConcluirPedido" class="modal-overlay">
+    <div class="modal-box" style="max-width: 520px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="badge-count badge-green" style="font-size: 13px;">Conclusão</span>
+          <h3 style="color: var(--primary); margin: 0;">Concluir Atendimento</h3>
+        </div>
+        <button type="button" onclick="fecharModalConcluirPedido()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+
+      <div style="background: #f8fafc; padding: 12px 14px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 16px;">
+        <div style="font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase;">Solicitação:</div>
+        <div id="modalConcluirPedidoTitulo" style="font-size: 14.5px; font-weight: 700; color: var(--primary); margin: 2px 0;">-</div>
+        <div id="modalConcluirPedidoDetalhes" style="font-size: 12px; color: var(--text-muted);">-</div>
+      </div>
+
+      <form onsubmit="confirmarConclusaoPedido(event)">
+        <input type="hidden" id="concluirPedidoId">
+        <div class="form-group">
+          <label class="form-label">Observação / Resposta da Resolução (Obrigatória)</label>
+          <textarea id="pedObservacaoResposta" class="form-textarea" rows="4" required placeholder="Descreva a solução adotada, peças trocadas, orientações ou o parecer final..."></textarea>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+          <button type="button" class="btn-secondary" onclick="fecharModalConcluirPedido()">Cancelar</button>
+          <button type="submit" class="btn-primary" style="background: var(--success); color: white;">
+            ✅ Confirmar e Finalizar Chamado
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL MOVIMENTAÇÃO EM LOTE -->
+  <div id="modalMovLote" class="modal-overlay">
+    <div class="modal-box" style="max-width: 680px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <div>
+          <h3 style="color: var(--primary); margin: 0;">Nova Movimentação de Estoque em Lote</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 2px;">Lance entradas ou saídas de múltiplos modelos na mesma operação.</p>
+        </div>
+        <button type="button" onclick="fecharModalMovLote()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+
+      <form onsubmit="salvarMovimentacaoLote(event)">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Finalidade / Motivo da Operação</label>
+            <input type="text" id="movMotivo" class="form-input" required placeholder="Ex: Carga Recebida Fornecedor / Atendimento Produção">
+          </div>
+          <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label">Número da NF ou Requisição (Opcional)</label>
+            <input type="text" id="movDocRef" class="form-input" placeholder="Ex: NF-45812 / REQ-89">
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px;">
+          <label class="form-label" style="margin: 0;">Itens da Movimentação:</label>
+          <button type="button" class="action-btn" style="color: var(--accent); border-color: #bfdbfe;" onclick="adicionarLinhaItemLote()">+ Adicionar Outro Item</button>
+        </div>
+
+        <div id="containerLinhasLote" style="max-height: 240px; overflow-y: auto; padding-right: 4px; margin-bottom: 16px;"></div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; border-top: 1px solid var(--border); padding-top: 14px;">
+          <button type="button" class="btn-secondary" onclick="fecharModalMovLote()">Cancelar</button>
+          <button type="submit" class="btn-primary">Concluir e Gerar Romaneio</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DOCUMENTO OFICIAL / GUIA DE MOVIMENTAÇÃO -->
+  <div id="modalDocumentoMov" class="modal-overlay">
+    <div class="modal-box" style="max-width: 640px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="color: var(--primary); margin: 0;">Guia Oficial de Movimentação</h3>
+        <button type="button" onclick="fecharModalDocumento()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+      <div id="conteudoDocumentoOficial" class="doc-romaneio"></div>
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; flex-wrap: wrap; gap: 8px;">
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn-secondary" onclick="imprimirDocumentoMov()">🖨️ Imprimir / Salvar PDF</button>
+          <button type="button" class="action-btn" style="color:var(--danger); border-color:#fca5a5; background:#fef2f2; font-weight:700;" onclick="if(movAtualDocumento) excluirMovimentacao(movAtualDocumento.id)">🗑️ Excluir Guia</button>
+        </div>
+        <button type="button" class="btn-primary" onclick="fecharModalDocumento()">Fechar Documento</button>
+      </div>
+    </div>
+  </div>
+
+    <!-- MODAL DE DEPARTAMENTO E PERMISSÕES -->
+  <div id="modalDepartamento" class="modal-overlay">
+    <div class="modal-box" style="max-width: 600px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+        <h3 style="color: var(--primary); margin: 0;" id="modalDeptoTitulo">Gerenciar Departamento</h3>
+        <button type="button" onclick="fecharModalDepartamento()" style="border:none; background:none; font-size:20px; cursor:pointer;">&times;</button>
+      </div>
+
+      <form onsubmit="salvarDepartamento(event)">
+        <input type="hidden" id="deptoIdEdit">
+        <div class="form-group">
+          <label class="form-label">Nome do Departamento</label>
+          <input type="text" id="deptoNome" class="form-input" required placeholder="Ex: Financeiro & Controladoria">
+        </div>
+
+        <label class="form-label">Permissões de Acesso do Setor:</label>
+        <div class="grid-permissoes-checkbox">
+          <label class="chk-perm-item">
+            <input type="checkbox" id="chkPermPedidosCriar"> Abrir Solicitações
+          </label>
+          <label class="chk-perm-item">
+            <input type="checkbox" id="chkPermPedidosAtender"> Atender e Finalizar Chamados
+          </label>
+          <label class="chk-perm-item">
+            <input type="checkbox" id="chkPermEstoque"> Gestão Completa de Estoque
+          </label>
+          <label class="chk-perm-item">
+            <input type="checkbox" id="chkPermVendas"> Realizar Vendas & Separação
+          </label>
+          <label class="chk-perm-item">
+            <input type="checkbox" id="chkPermChat"> Acesso ao Chat Interno
+          </label>
+          <label class="chk-perm-item">
+            <input type="checkbox" id="chkPermAdmin"> Administrador / Governança TI
+          </label>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+          <button type="button" class="btn-secondary" onclick="fecharModalDepartamento()">Cancelar</button>
+          <button type="submit" class="btn-primary">Salvar Configurações</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
